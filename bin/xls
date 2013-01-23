@@ -1,0 +1,35 @@
+#!/usr/bin/env ruby
+$:.unshift(File.join(File.dirname(File.expand_path(__FILE__)), '..', 'lib'))
+
+require 'rubygems'
+require 'xls'
+require 'commander/import'
+
+program :name, 'XLS'
+program :version, Xls::VERSION
+program :description, 'A command line utility for working with data in Excel.'
+
+
+################################################################################
+# Processing
+################################################################################
+
+command :columnize do |c|
+  c.syntax = 'xls columnize FILE'
+  c.description = 'Converts a worksheet formatted as table into 2-column rows using header/value.'
+  c.option('--output FILE', 'The path to the output file.')
+  c.option('--fixed-columns COLUMNS', 'The columns that should stay fixed.')
+  c.when_called do|args, options|
+    # Open input file.
+    abort("Input file required") if args.length == 0
+    workbook = Spreadsheet.open(args.first)
+    
+    # Run columnizer.
+    columnizer = Xls::Columnizer.new()
+    columnizer.fixed_columns = options.fixed_columns.to_s.split(",")
+    columnizer.execute(workbook)
+    
+    # Write output.
+    workbook.write(options.output || $stdout)
+  end
+end
