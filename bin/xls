@@ -11,7 +11,41 @@ program :description, 'A command line utility for working with data in Excel.'
 
 
 ################################################################################
-# Processing
+#
+# Enumeration
+#
+################################################################################
+
+command :"enumerate" do |c|
+  c.syntax = 'xls enumerate FILE'
+  c.description = 'Executes Ruby code on each cell of a workbook.'
+  c.option('--selection SELECTION', 'The Excel style selection to work within.')
+  c.option('-e CODE', 'The code to execute for each cell.')
+  c.when_called do|args, options|
+    # Open input file.
+    abort("Input file required") if args.length == 0
+    workbook = Spreadsheet.open(args.first)
+
+    # Convert Ruby source to procs.
+    abort("Enumerator code required") if options.e.nil?
+    procs = options.e.is_a?(String) ? [options.e] : options.e
+    procs.map! {|source| eval("lambda { |cell, col_index, row_index| #{source} }")}
+    
+    # Run enumerator.
+    enumerator = Xls::Enumerator.new()
+    enumerator.selection = Xls::Selection.parse(options.selection.upcase) unless options.selection.nil?
+    enumerator.procs = procs
+    enumerator.process(workbook)
+  end
+end
+
+
+
+
+################################################################################
+#
+# Transformation
+#
 ################################################################################
 
 command :columnize do |c|
@@ -21,15 +55,16 @@ command :columnize do |c|
   c.option('--fixed-columns COLUMNS', 'The columns that should stay fixed.')
   c.when_called do|args, options|
     # Open input file.
+    abort("Output file required") if options.output.nil?
     abort("Input file required") if args.length == 0
-    workbook = Spreadsheet.open(args.first)
+    input = Spreadsheet.open(args.first)
     
     # Run columnizer.
     columnizer = Xls::Columnizer.new()
     columnizer.fixed_columns = options.fixed_columns.to_s.split(",")
-    columnizer.execute(workbook)
+    output = columnizer.process(input)
     
-    # Write output.
-    workbook.write(options.output || $stdout)
+    # Write output to file.
+    output.write(options.output)
   end
 end
