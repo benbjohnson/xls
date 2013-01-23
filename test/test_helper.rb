@@ -10,6 +10,8 @@ class MiniTest::Unit::TestCase
     worksheet.each do |row|
       act << row.map {|cell| cell.to_s.strip }
     end
+    exp = exp.map {|row| row.map {|cell| '%-10s' % cell.to_s}.join('').strip}.join("\n")
+    act = act.map {|row| row.map {|cell| '%-10s' % cell.to_s}.join('').strip}.join("\n")
     assert_equal(exp, act, msg)
   end
 end

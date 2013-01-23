@@ -6,6 +6,10 @@ class Xls
     #
     ############################################################################
 
+    def initialize(options={})
+      self.fixed_columns = options[:fixed_columns] || []
+    end
+
 
     ############################################################################
     #
@@ -39,15 +43,27 @@ class Xls
 
         # Process headers.
         input_headers = input_sheet.row(0).map { |cell| cell.to_s }
-        output_sheet.row(0).replace(['KEY', 'VALUE'])
+        output_sheet.row(0).replace(fixed_columns.clone.concat(['KEY', 'VALUE']))
 
-        input_sheet.each(1) do |row|
-          (0...input_headers.length).each do |index|
+        # Process data.
+        column_range = (0...input_headers.length)
+        input_sheet.each(1) do |input_row|
+          # Determine fixed column values.
+          fixed_column_values = fixed_columns.map { '' }
+          column_range.each do |index|
+            fixed_column_index = fixed_columns.index(input_headers[index])
+            fixed_column_values[fixed_column_index] = input_row[index] unless fixed_column_index.nil?
+          end
+          
+          # Write key/value data.
+          column_range.each do |index|
+            next if fixed_columns.index(input_headers[index])
             output_row = output_sheet.row(output_index)
+            output_row.replace(fixed_column_values)
 
             # Write header and data.
-            output_row[0] = input_headers[index]
-            output_row[1] = row[index]
+            output_row.push(input_headers[index])
+            output_row.push(input_row[index])
     
             output_index = output_index + 1
           end
