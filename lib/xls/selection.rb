@@ -22,7 +22,7 @@ class Xls
     #
     # @return [Selection]  A selection object.
     def self.parse(str)
-      m, tl_col, tl_row, br_col, br_row = *str.to_s.match(/^([A-Z]+)(\d+)(?::([A-Z]+)(\d+))?$/)
+      m, tl_col, tl_row, br_col, br_row = *str.to_s.match(/^([A-Z]+)?(\d+)?(?::([A-Z]+)?(\d+)?)?$/)
       raise SelectionFormatError.new("Invalid selection: #{str}") if m.nil?
       
       # Default bottom-right for single cell selection.
@@ -30,19 +30,25 @@ class Xls
       br_row = tl_row if br_row.nil?
       
       # Convert column letters to numbers.
-      tl_col = col_to_index(tl_col)
-      br_col = col_to_index(br_col)
+      columns = nil
+      if !tl_col.nil? && !br_col.nil?
+        tl_col = col_to_index(tl_col)
+        br_col = col_to_index(br_col)
+        tl_col, br_col = [tl_col, br_col].min, [tl_col, br_col].max
+        columns = (tl_col..br_col)
+      end
       
       # Convert rows to zero-based indices.
-      tl_row = tl_row.to_i - 1
-      br_row = br_row.to_i - 1
-      
-      # Invert range if necessary.
-      tl_col, br_col = [tl_col, br_col].min, [tl_col, br_col].max
-      tl_row, br_row = [tl_row, br_row].min, [tl_row, br_row].max
+      rows = nil
+      if !tl_row.nil? && !br_row.nil?
+        tl_row = tl_row.to_i - 1
+        br_row = br_row.to_i - 1
+        tl_row, br_row = [tl_row, br_row].min, [tl_row, br_row].max
+        rows = (tl_row..br_row)
+      end
       
       # Return a selection object.
-      return Xls::Selection.new((tl_col..br_col), (tl_row..br_row))
+      return Xls::Selection.new(columns, rows)
     end
 
     # Converts column letters to integer indices.
@@ -82,7 +88,12 @@ class Xls
     # An array of indicies (top-level column, top-left row, bottom-right
     # column, bottom-right row).
     def indices
-      return [columns.begin, rows.begin, columns.end, rows.end]
+      return [
+        columns.nil? ? nil : columns.begin,
+        rows.nil? ? nil : rows.begin,
+        columns.nil? ? nil : columns.end,
+        rows.nil? ? nil : rows.end
+      ]
     end
   end
 end
