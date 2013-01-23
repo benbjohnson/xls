@@ -9,23 +9,42 @@ class TestEnumerator < MiniTest::Unit::TestCase
   # Execute
   ######################################
   
-  def test_enumerate
-    my_arr = []
-    input = Spreadsheet.open('fixtures/enumerator/basic.xls')
-    @enumerator.procs = [
-      lambda {|cell, col, row| my_arr << cell.to_s},
-      lambda {|cell, col, row| my_arr << '0'},
-    ]
-    @enumerator.process(input)
-    assert_equal ["a", "0", "b", "0", "c", "0", "d", "0", "e", "0", "f", "0", "g", "0", "h", "0", "i", "0"], my_arr
+  def test_map_enumerate
+    workbook = Spreadsheet.open('fixtures/enumerator/basic.xls')
+    @enumerator.action = :map
+    @enumerator.proc = "text.to_s + '!'"
+    @enumerator.process(workbook)
+    assert_worksheet [
+      ['a!', 'b!', 'c!'],
+      ['d!', 'e!', 'f!'],
+      ['g!', 'h!', 'i!'],
+      ],
+      workbook.worksheet(0)
   end
 
-  def test_enumerate_with_selection
-    my_arr = []
-    input = Spreadsheet.open('fixtures/enumerator/basic.xls')
-    @enumerator.procs = [lambda {|cell, col, row| my_arr << cell.to_s}]
-    @enumerator.selection = Xls::Selection.parse("B2:C3")
-    @enumerator.process(input)
-    assert_equal ['e', 'f', 'h', 'i'], my_arr
+  def test_select_enumerate
+    workbook = Spreadsheet.open('fixtures/enumerator/basic.xls')
+    @enumerator.action = :select
+    @enumerator.proc = "text.to_s.ord % 2 == 0"
+    @enumerator.process(workbook)
+    assert_worksheet [
+      ['', 'b', ''],
+      ['d', '', 'f'],
+      ['', 'h', ''],
+      ],
+      workbook.worksheet(0)
+  end
+
+  def test_reject_enumerate
+    workbook = Spreadsheet.open('fixtures/enumerator/basic.xls')
+    @enumerator.action = :reject
+    @enumerator.proc = "text.to_s.ord % 2 == 0"
+    @enumerator.process(workbook)
+    assert_worksheet [
+      ['a', '', 'c'],
+      ['', 'e', ''],
+      ['g', '', 'i'],
+      ],
+      workbook.worksheet(0)
   end
 end

@@ -16,29 +16,38 @@ program :description, 'A command line utility for working with data in Excel.'
 #
 ################################################################################
 
-command :"enumerate" do |c|
-  c.syntax = 'xls enumerate FILE'
-  c.description = 'Executes Ruby code on each cell of a workbook.'
-  c.option('--selection SELECTION', 'The Excel style selection to work within.')
-  c.option('-e CODE', 'The code to execute for each cell.')
-  c.when_called do|args, options|
-    # Open input file.
-    abort("Input file required") if args.length == 0
-    workbook = Spreadsheet.open(args.first)
+def build_enumerator_command(action, description)
+  command action do |c|
+    c.syntax = "xls #{action.to_s} FILE"
+    c.description = description
+    c.option('-s SELECTION', 'The Excel style selection to work within.')
+    c.option('-e CODE', 'The code to execute for each cell.')
+    c.option('--use-headers', 'Whether to use the first row as a header row.')
+    c.option('--output FILE', 'The path to the output file.') unless action == :each
+    c.when_called do|args, options|
+      abort("Input file required") if args.length == 0
+      abort("Output file required") if action != :each && options.e.nil?
+      abort("Execution code required") if options.e.nil?
 
-    # Convert Ruby source to procs.
-    abort("Enumerator code required") if options.e.nil?
-    procs = options.e.is_a?(String) ? [options.e] : options.e
-    procs.map! {|source| eval("lambda { |cell, col_index, row_index| #{source} }")}
-    
-    # Run enumerator.
-    enumerator = Xls::Enumerator.new()
-    enumerator.selection = Xls::Selection.parse(options.selection.upcase) unless options.selection.nil?
-    enumerator.procs = procs
-    enumerator.process(workbook)
+      # Run enumerator.
+      workbook = Spreadsheet.open(args.first)
+      enumerator = Xls::Enumerator.new()
+      enumerator.action = action
+      enumerator.use_headers = options.use_headers
+      enumerator.selection = Xls::Selection.parse(options.s.upcase) unless options.s.nil?
+      enumerator.proc = options.e
+      enumerator.process(workbook)
+
+      # Write output to file.
+      workbook.write(options.output) if action != :each
+    end
   end
 end
 
+build_enumerator_command(:each, 'Executes Ruby code on each cell of a workbook.')
+build_enumerator_command(:map, 'Maps output of Ruby code on each cell.')
+build_enumerator_command(:select, 'Keeps each cell where the code evaluates true.')
+build_enumerator_command(:reject, 'Keeps each cell where the code evaluates false.')
 
 
 
@@ -50,7 +59,7 @@ end
 
 command :columnize do |c|
   c.syntax = 'xls columnize FILE'
-  c.description = 'Converts a worksheet formatted as table into 2-column rows using header/value.'
+  c.description = 'Converts table into 2-column rows table.'
   c.option('--output FILE', 'The path to the output file.')
   c.option('--fixed-columns COLUMNS', 'The columns that should stay fixed.')
   c.when_called do|args, options|
